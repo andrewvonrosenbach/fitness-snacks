@@ -588,3 +588,226 @@ ul { list-style: none; }
   font-size: 14px;
   padding: 40px 0;
 }
+
+/* ── CRUD shared ─────────────────────────────────────────────────────────────*/
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.page-header .page-title { margin-bottom: 0; flex: 1; }
+
+.btn-add {
+  background: var(--green);
+  color: #000;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  white-space: nowrap;
+}
+
+.btn-add:hover { background: var(--green-light); }
+
+.crud-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crud-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.crud-card-header {
+  width: 100%;
+  background: none;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  color: var(--text);
+}
+
+.crud-card-header:hover { background: rgba(255,255,255,0.03); }
+
+.crud-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.crud-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crud-card-sub { font-size: 12px; color: var(--text-dim); }
+
+.crud-card-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.expand-icon { font-size: 10px; color: var(--text-dim); }
+.fav-star { color: var(--yellow); font-size: 14px; }
+
+.crud-card-body {
+  border-top: 1px solid var(--border);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.crud-detail-text { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+.crud-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.crud-detail-label { color: var(--text-dim); }
+.crud-detail-value { color: var(--text-muted); text-align: right; text-transform: capitalize; }
+
+.crud-instructions {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.crud-instructions li {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  list-style: decimal;
+}
+
+.crud-card-actions { display: flex; gap: 8px; padding-top: 4px; }
+
+.btn-edit {
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+}
+
+.btn-delete {
+  background: var(--red-bg);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+}
+
+.btn-favorite {
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  color: var(--yellow);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+}
+
+/* ── Forms ───────────────────────────────────────────────────────────────────*/
+
+.crud-form { display: flex; flex-direction: column; gap: 16px; }
+
+.form-field { display: flex; flex-direction: column; gap: 6px; }
+
+.form-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.form-hint { font-weight: 400; color: var(--text-dim); margin-left: 4px; }
+
+.form-input {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding: 12px 14px;
+  width: 100%;
+}
+
+.form-input:focus { border-color: var(--green-dark); outline: none; }
+
+select.form-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23737373' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+.form-textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.form-actions { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+
+/* ── Exercise picker ─────────────────────────────────────────────────────────*/
+
+.exercise-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.picker-item input[type="checkbox"] {
+  accent-color: var(--green);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.picker-item:hover { background: var(--surface-2); }
+.picker-item.selected { background: var(--green-glow); border-color: rgba(34,197,94,0.3); }
+
+.picker-item-info { display: flex; flex-direction: column; gap: 2px; }
+.picker-item-name { font-size: 14px; font-weight: 500; color: var(--text); }
+.picker-item-sub { font-size: 12px; color: var(--text-dim); }

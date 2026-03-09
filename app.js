@@ -255,29 +255,379 @@ function ActivePod({ pod, onBack, onComplete }) {
   );
 }
 
+// ── Exercise Form ─────────────────────────────────────────────────────────────
+
+function ExerciseForm({ initial, onSave, onCancel, saving }) {
+  const toForm = (ex) => ex ? {
+    ...ex,
+    muscle_groups: Array.isArray(ex.muscle_groups) ? ex.muscle_groups.join(', ') : (ex.muscle_groups || ''),
+    equipment: Array.isArray(ex.equipment) ? ex.equipment.join(', ') : (ex.equipment || ''),
+    instructions: Array.isArray(ex.instructions) ? ex.instructions.join('\n') : (ex.instructions || ''),
+  } : {
+    name: '', description: '', difficulty: 'intermediate',
+    muscle_groups: '', equipment: 'bodyweight', movement_type: 'strength',
+    duration_estimate_seconds: 45, instructions: '',
+  };
+
+  const [form, setForm] = useState(() => toForm(initial));
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      ...form,
+      muscle_groups: form.muscle_groups.split(',').map(s => s.trim()).filter(Boolean),
+      equipment: form.equipment.split(',').map(s => s.trim()).filter(Boolean),
+      duration_estimate_seconds: Number(form.duration_estimate_seconds),
+      instructions: form.instructions.split('\n').map(s => s.trim()).filter(Boolean),
+    });
+  };
+
+  return (
+    <form className="crud-form" onSubmit={handleSubmit}>
+      <div className="form-field">
+        <label>Name</label>
+        <input className="form-input" value={form.name} onChange={e => set('name', e.target.value)} required />
+      </div>
+      <div className="form-field">
+        <label>Description</label>
+        <textarea className="form-input form-textarea" value={form.description} onChange={e => set('description', e.target.value)} rows={3} />
+      </div>
+      <div className="form-row">
+        <div className="form-field">
+          <label>Difficulty</label>
+          <select className="form-input" value={form.difficulty} onChange={e => set('difficulty', e.target.value)}>
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+        </div>
+        <div className="form-field">
+          <label>Movement Type</label>
+          <select className="form-input" value={form.movement_type} onChange={e => set('movement_type', e.target.value)}>
+            <option value="strength">Strength</option>
+            <option value="mobility">Mobility</option>
+            <option value="both">Both</option>
+          </select>
+        </div>
+      </div>
+      <div className="form-field">
+        <label>Muscle Groups <span className="form-hint">comma-separated</span></label>
+        <input className="form-input" value={form.muscle_groups} onChange={e => set('muscle_groups', e.target.value)} placeholder="core, legs, glutes" />
+      </div>
+      <div className="form-field">
+        <label>Equipment <span className="form-hint">comma-separated</span></label>
+        <input className="form-input" value={form.equipment} onChange={e => set('equipment', e.target.value)} placeholder="bodyweight, dumbbells" />
+      </div>
+      <div className="form-field">
+        <label>Duration (seconds)</label>
+        <input className="form-input" type="number" min={10} max={600} value={form.duration_estimate_seconds} onChange={e => set('duration_estimate_seconds', e.target.value)} />
+      </div>
+      <div className="form-field">
+        <label>Instructions <span className="form-hint">one per line</span></label>
+        <textarea className="form-input form-textarea" value={form.instructions} onChange={e => set('instructions', e.target.value)} rows={5} placeholder={"Stand tall\nLower into squat\nDrive up"} />
+      </div>
+      <div className="form-actions">
+        <button type="submit" className="btn-primary" disabled={saving || !form.name.trim()}>
+          {saving ? 'Saving…' : 'Save Exercise'}
+        </button>
+        <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
 // ── Library ───────────────────────────────────────────────────────────────────
 
 function Library() {
+  const [exercises, setExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('list');
+  const [editing, setEditing] = useState(null);
+  const [expanded, setExpanded] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+
+  useEffect(() => {
+    apiFetch('/api/exercises')
+      .then(r => r && r.json())
+      .then(data => { if (data) setExercises(data); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async (data) => {
+    setSaving(true);
+    try {
+      if (editing) {
+        const res = await apiFetch(`/api/exercises?id=${editing.id}`, { method: 'PUT', body: JSON.stringify(data) });
+        const updated = await res.json();
+        setExercises(exs => exs.map(e => e.id === updated.id ? updated : e));
+      } else {
+        const res = await apiFetch('/api/exercises', { method: 'POST', body: JSON.stringify(data) });
+        const created = await res.json();
+        setExercises(exs => [...exs, created]);
+      }
+      setView('list');
+      setEditing(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (ex) => {
+    if (!confirm(`Delete "${ex.name}"?`)) return;
+    setDeleting(ex.id);
+    await apiFetch(`/api/exercises?id=${ex.id}`, { method: 'DELETE' });
+    setExercises(exs => exs.filter(e => e.id !== ex.id));
+    setExpanded(null);
+    setDeleting(null);
+  };
+
+  const cancel = () => { setEditing(null); setView('list'); };
+
+  if (view === 'form') {
+    return (
+      <div className="page">
+        <div className="page-header">
+          <button className="back-btn" onClick={cancel}>←</button>
+          <h2 className="page-title">{editing ? 'Edit Exercise' : 'New Exercise'}</h2>
+        </div>
+        <ExerciseForm initial={editing} onSave={handleSave} onCancel={cancel} saving={saving} />
+      </div>
+    );
+  }
+
   return (
     <div className="page">
-      <h2 className="page-title">Exercise Library</h2>
-      <div className="coming-soon">
-        <span className="icon">📚</span>
-        <p>Coming soon</p>
+      <div className="page-header">
+        <h2 className="page-title">Exercise Library</h2>
+        <button className="btn-add" onClick={() => { setEditing(null); setView('form'); }}>+ New</button>
+      </div>
+
+      {loading && <p className="empty-state"><span className="spinner"></span></p>}
+      {!loading && exercises.length === 0 && <p className="empty-state">No exercises yet.</p>}
+
+      <div className="crud-list">
+        {[...exercises].sort((a, b) => a.name.localeCompare(b.name)).map(ex => (
+          <div key={ex.id} className="crud-card">
+            <button className="crud-card-header" onClick={() => setExpanded(expanded === ex.id ? null : ex.id)}>
+              <div className="crud-card-info">
+                <span className="crud-card-name">{ex.name}</span>
+                <span className="crud-card-sub">{ex.muscle_groups?.join(', ')}</span>
+              </div>
+              <div className="crud-card-right">
+                <DiffBadge level={ex.difficulty} />
+                <span className="expand-icon">{expanded === ex.id ? '▲' : '▼'}</span>
+              </div>
+            </button>
+            {expanded === ex.id && (
+              <div className="crud-card-body">
+                {ex.description && <p className="crud-detail-text">{ex.description}</p>}
+                <div className="crud-detail-row">
+                  <span className="crud-detail-label">Movement</span>
+                  <span className="crud-detail-value">{ex.movement_type}</span>
+                </div>
+                <div className="crud-detail-row">
+                  <span className="crud-detail-label">Equipment</span>
+                  <span className="crud-detail-value">{ex.equipment?.join(', ')}</span>
+                </div>
+                <div className="crud-detail-row">
+                  <span className="crud-detail-label">Duration</span>
+                  <span className="crud-detail-value">{ex.duration_estimate_seconds}s</span>
+                </div>
+                {ex.instructions?.length > 0 && (
+                  <ol className="crud-instructions">
+                    {ex.instructions.map((step, i) => <li key={i}>{step}</li>)}
+                  </ol>
+                )}
+                <div className="crud-card-actions">
+                  <button className="btn-edit" onClick={() => { setEditing(ex); setView('form'); }}>Edit</button>
+                  <button className="btn-delete" onClick={() => handleDelete(ex)} disabled={deleting === ex.id}>
+                    {deleting === ex.id ? '…' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
+  );
+}
+
+// ── Pod Form ──────────────────────────────────────────────────────────────────
+
+function PodForm({ initial, exercises, onSave, onCancel, saving }) {
+  const [name, setName] = useState(initial?.name || '');
+  const [selectedIds, setSelectedIds] = useState(new Set(initial?.exercises || []));
+
+  const toggle = (id) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({ name, exercises: [...selectedIds] });
+  };
+
+  return (
+    <form className="crud-form" onSubmit={handleSubmit}>
+      <div className="form-field">
+        <label>Pod Name</label>
+        <input className="form-input" value={name} onChange={e => setName(e.target.value)} required />
+      </div>
+      <div className="form-field">
+        <label>Exercises <span className="form-hint">{selectedIds.size} selected</span></label>
+        <div className="exercise-picker">
+          {[...exercises].sort((a, b) => a.name.localeCompare(b.name)).map(ex => (
+            <label key={ex.id} className={`picker-item${selectedIds.has(ex.id) ? ' selected' : ''}`}>
+              <input type="checkbox" checked={selectedIds.has(ex.id)} onChange={() => toggle(ex.id)} />
+              <div className="picker-item-info">
+                <span className="picker-item-name">{ex.name}</span>
+                <span className="picker-item-sub">{ex.duration_estimate_seconds}s · {ex.difficulty}</span>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="form-actions">
+        <button type="submit" className="btn-primary" disabled={saving || !name.trim() || selectedIds.size === 0}>
+          {saving ? 'Saving…' : 'Save Pod'}
+        </button>
+        <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
   );
 }
 
 // ── Pods ──────────────────────────────────────────────────────────────────────
 
 function Pods() {
+  const [pods, setPods] = useState([]);
+  const [exercises, setExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('list');
+  const [editing, setEditing] = useState(null);
+  const [expanded, setExpanded] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch('/api/pods').then(r => r && r.json()),
+      apiFetch('/api/exercises').then(r => r && r.json()),
+    ]).then(([podsData, exData]) => {
+      if (podsData) setPods(podsData);
+      if (exData) setExercises(exData);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const exMap = Object.fromEntries(exercises.map(e => [e.id, e]));
+  const mins = (secs) => Math.round(secs / 60);
+
+  const handleSave = async (data) => {
+    setSaving(true);
+    try {
+      if (editing) {
+        const res = await apiFetch(`/api/pods?id=${editing.id}`, { method: 'PUT', body: JSON.stringify(data) });
+        const updated = await res.json();
+        setPods(ps => ps.map(p => p.id === updated.id ? updated : p));
+      } else {
+        const res = await apiFetch('/api/pods', { method: 'POST', body: JSON.stringify(data) });
+        const created = await res.json();
+        setPods(ps => [...ps, created]);
+      }
+      setView('list');
+      setEditing(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (pod) => {
+    if (!confirm(`Delete "${pod.name}"?`)) return;
+    setDeleting(pod.id);
+    await apiFetch(`/api/pods?id=${pod.id}`, { method: 'DELETE' });
+    setPods(ps => ps.filter(p => p.id !== pod.id));
+    setExpanded(null);
+    setDeleting(null);
+  };
+
+  const handleFavorite = async (pod) => {
+    const res = await apiFetch(`/api/pods?id=${pod.id}&action=favorite`, { method: 'PATCH' });
+    const updated = await res.json();
+    setPods(ps => ps.map(p => p.id === updated.id ? updated : p));
+  };
+
+  const cancel = () => { setEditing(null); setView('list'); };
+
+  if (view === 'form') {
+    return (
+      <div className="page">
+        <div className="page-header">
+          <button className="back-btn" onClick={cancel}>←</button>
+          <h2 className="page-title">{editing ? 'Edit Pod' : 'New Pod'}</h2>
+        </div>
+        <PodForm initial={editing} exercises={exercises} onSave={handleSave} onCancel={cancel} saving={saving} />
+      </div>
+    );
+  }
+
   return (
     <div className="page">
-      <h2 className="page-title">Pod Manager</h2>
-      <div className="coming-soon">
-        <span className="icon">📦</span>
-        <p>Coming soon</p>
+      <div className="page-header">
+        <h2 className="page-title">Pod Manager</h2>
+        <button className="btn-add" onClick={() => { setEditing(null); setView('form'); }}>+ New</button>
+      </div>
+
+      {loading && <p className="empty-state"><span className="spinner"></span></p>}
+      {!loading && pods.length === 0 && <p className="empty-state">No pods yet.</p>}
+
+      <div className="crud-list">
+        {[...pods].sort((a, b) => a.name.localeCompare(b.name)).map(pod => (
+          <div key={pod.id} className="crud-card">
+            <button className="crud-card-header" onClick={() => setExpanded(expanded === pod.id ? null : pod.id)}>
+              <div className="crud-card-info">
+                <span className="crud-card-name">{pod.name}</span>
+                <span className="crud-card-sub">{pod.exercises.length} exercises · ~{mins(pod.total_duration_estimate_seconds)} min</span>
+              </div>
+              <div className="crud-card-right">
+                <TypeBadge type={pod.pod_type} />
+                {pod.is_favorite && <span className="fav-star">★</span>}
+                <span className="expand-icon">{expanded === pod.id ? '▲' : '▼'}</span>
+              </div>
+            </button>
+            {expanded === pod.id && (
+              <div className="crud-card-body">
+                <ul className="exercise-list">
+                  {pod.exercises.map(id => {
+                    const ex = exMap[id];
+                    return ex ? (
+                      <li key={id} className="exercise-item">
+                        <div>
+                          <p className="exercise-name">{ex.name}</p>
+                          <p className="exercise-muscles">{ex.muscle_groups?.join(', ')}</p>
+                        </div>
+                        <DiffBadge level={ex.difficulty} />
+                      </li>
+                    ) : null;
+                  })}
+                </ul>
+                <div className="crud-card-actions">
+                  <button className="btn-favorite" onClick={() => handleFavorite(pod)}>
+                    {pod.is_favorite ? '★ Unfav' : '☆ Fav'}
+                  </button>
+                  <button className="btn-edit" onClick={() => { setEditing(pod); setView('form'); }}>Edit</button>
+                  <button className="btn-delete" onClick={() => handleDelete(pod)} disabled={deleting === pod.id}>
+                    {deleting === pod.id ? '…' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
