@@ -293,7 +293,7 @@ function Home({ onStart, onBrowse }) {
   const [error, setError] = useState(null);
   const [podType, setPodType] = useState('any');
   const [expandedEx, setExpandedEx] = useState(null);
-  // { [exId]: { field: 'reps'|'duration_estimate_seconds', value: number } }
+  // { [exId]: { field: 'reps'|'duration_estimate_seconds', value: number, raw: string } }
   const [exOverrides, setExOverrides] = useState({});
   // { [exId]: { field, value } } — values changed from original, waiting for user to confirm save
   const [pendingDefaults, setPendingDefaults] = useState({});
@@ -322,12 +322,41 @@ function Home({ onStart, onBrowse }) {
   }, []);
 
   const handleExOverride = (ex, rawVal) => {
+    // Allow empty/partial input while typing — store the raw string, only update value when valid
+    const field = exOverrides[ex.id]?.field ?? (ex.reps ? 'reps' : 'duration_estimate_seconds');
     const numVal = parseInt(rawVal, 10);
-    if (isNaN(numVal) || numVal < 1) return;
-    const field = ex.reps ? 'reps' : 'duration_estimate_seconds';
-    setExOverrides(prev => ({ ...prev, [ex.id]: { field, value: numVal } }));
-    if (numVal !== ex[field]) {
-      setPendingDefaults(prev => ({ ...prev, [ex.id]: { field, value: numVal } }));
+    const valid = !isNaN(numVal) && numVal >= 1;
+    setExOverrides(prev => ({
+      ...prev,
+      [ex.id]: {
+        field,
+        value: valid ? numVal : (prev[ex.id]?.value ?? (ex[field] || 1)),
+        raw: rawVal,
+      },
+    }));
+    if (valid) {
+      const origField = ex.reps ? 'reps' : 'duration_estimate_seconds';
+      const changed = field !== origField || numVal !== ex[origField];
+      if (changed) {
+        setPendingDefaults(prev => ({ ...prev, [ex.id]: { field, value: numVal } }));
+      } else {
+        setPendingDefaults(prev => { const n = { ...prev }; delete n[ex.id]; return n; });
+      }
+    }
+  };
+
+  const handleExTrackMode = (ex, newField) => {
+    const defaultVal = newField === 'reps'
+      ? (ex.reps || 10)
+      : (ex.duration_estimate_seconds || 45);
+    const origField = ex.reps ? 'reps' : 'duration_estimate_seconds';
+    const changed = newField !== origField || defaultVal !== ex[origField];
+    setExOverrides(prev => ({
+      ...prev,
+      [ex.id]: { field: newField, value: defaultVal, raw: String(defaultVal) },
+    }));
+    if (changed) {
+      setPendingDefaults(prev => ({ ...prev, [ex.id]: { field: newField, value: defaultVal } }));
     } else {
       setPendingDefaults(prev => { const n = { ...prev }; delete n[ex.id]; return n; });
     }
@@ -338,9 +367,12 @@ function Home({ onStart, onBrowse }) {
     if (!pending) return;
     setSavingDefault(exId);
     try {
+      const payload = { [pending.field]: pending.value };
+      // Switching to duration: clear reps so exercise becomes timer-based
+      if (pending.field === 'duration_estimate_seconds') payload.reps = null;
       await apiFetch(`/api/exercises?id=${exId}`, {
         method: 'PUT',
-        body: JSON.stringify({ [pending.field]: pending.value }),
+        body: JSON.stringify(payload),
       });
       setPendingDefaults(prev => { const n = { ...prev }; delete n[exId]; return n; });
     } finally {
@@ -359,7 +391,10 @@ function Home({ onStart, onBrowse }) {
       exerciseDetails: (pod.exerciseDetails || []).map(ex => {
         const ov = exOverrides[ex.id];
         if (!ov) return ex;
-        return { ...ex, [ov.field]: ov.value };
+        const updated = { ...ex, [ov.field]: ov.value };
+        // If switching to duration, remove reps so ActivePod uses timer mode
+        if (ov.field === 'duration_estimate_seconds') delete updated.reps;
+        return updated;
       }),
     };
     onStart(updatedPod);
@@ -413,8 +448,9 @@ function Home({ onStart, onBrowse }) {
           <ul className="exercise-list">
             {(pod.exerciseDetails || []).map(ex => {
               const ov = exOverrides[ex.id];
-              const currentVal = ov ? ov.value : (ex.reps ?? ex.duration_estimate_seconds);
-              const fieldLabel = ex.reps ? 'Reps' : 'Duration (s)';
+              const currentField = ov?.field ?? (ex.reps ? 'reps' : 'duration_estimate_seconds');
+              const rawInput = ov?.raw ?? String(ex.reps ?? ex.duration_estimate_seconds);
+              const fieldLabel = currentField === 'reps' ? 'Reps' : 'Duration (s)';
               const pending = pendingDefaults[ex.id];
               return (
                 <li key={ex.id} className="exercise-item-expandable">
@@ -440,14 +476,28 @@ function Home({ onStart, onBrowse }) {
                           <span className="crud-detail-value">{ex.equipment.join(', ')}</span>
                         </div>
                       )}
+                      <div className="ex-override-track-toggle">
+                        <button
+                          className={`ex-track-btn${currentField === 'duration_estimate_seconds' ? ' active' : ''}`}
+                          onClick={e => { e.stopPropagation(); handleExTrackMode(ex, 'duration_estimate_seconds'); }}
+                        >
+                          Duration
+                        </button>
+                        <button
+                          className={`ex-track-btn${currentField === 'reps' ? ' active' : ''}`}
+                          onClick={e => { e.stopPropagation(); handleExTrackMode(ex, 'reps'); }}
+                        >
+                          Reps
+                        </button>
+                      </div>
                       <div className="crud-detail-row">
                         <span className="crud-detail-label">{fieldLabel}</span>
                         <input
                           type="number"
                           className="ex-override-input"
-                          value={currentVal}
+                          value={rawInput}
                           min={1}
-                          max={ex.reps ? 200 : 600}
+                          max={currentField === 'reps' ? 200 : 600}
                           onClick={e => e.stopPropagation()}
                           onChange={e => handleExOverride(ex, e.target.value)}
                         />

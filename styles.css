@@ -1306,6 +1306,29 @@ select.form-input {
 
 /* ── Pod preview exercise overrides ─────────────────────────────────────────*/
 
+.ex-override-track-toggle {
+  display: flex;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.ex-track-btn {
+  flex: 1;
+  padding: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: none;
+  color: var(--text-muted);
+  border: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ex-track-btn:first-child { border-right: 1px solid var(--border-2); }
+.ex-track-btn.active { background: var(--green-glow); color: var(--green-light); }
+.ex-track-btn:hover:not(.active) { background: var(--surface-2); color: var(--text); }
+
 .ex-override-input {
   background: var(--surface-2);
   border: 1px solid var(--border-2);
