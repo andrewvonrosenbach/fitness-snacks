@@ -102,6 +102,8 @@ function DiffBadge({ level }) {
 }
 
 // ── Pomodoro Timer ────────────────────────────────────────────────────────────
+// Module-level store so timer state survives navigation (component unmount/remount)
+const _pomodoroStore = { selected: null, secsLeft: 0, running: false, done: false, endTime: null };
 
 const POMODORO_OPTIONS = [
   { label: '5 min', secs: 300 },
@@ -152,16 +154,25 @@ function playExerciseTone() {
 }
 
 function PomodoroTimer() {
-  const [selected, setSelected] = useState(null);
-  const [secsLeft, setSecsLeft] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [done, setDone] = useState(false);
+  // Restore state from module-level store so timer persists across navigation
+  const _initRunning = _pomodoroStore.running && _pomodoroStore.endTime && _pomodoroStore.endTime > Date.now();
+  const _initSecs = _initRunning
+    ? Math.max(0, Math.round((_pomodoroStore.endTime - Date.now()) / 1000))
+    : _pomodoroStore.secsLeft;
+  const [selected, setSelected] = useState(_pomodoroStore.selected);
+  const [secsLeft, setSecsLeft] = useState(_initSecs);
+  const [running, setRunning] = useState(_initRunning);
+  const [done, setDone] = useState(_pomodoroStore.done);
   // timerRef holds mutable timer state safe to read from closures
-  const timerRef = useRef({ endTime: null, running: false });
+  const timerRef = useRef({ endTime: _pomodoroStore.endTime, running: _initRunning });
 
   const finishPomodoro = useCallback(() => {
     timerRef.current.endTime = null;
     timerRef.current.running = false;
+    _pomodoroStore.endTime = null;
+    _pomodoroStore.running = false;
+    _pomodoroStore.done = true;
+    _pomodoroStore.secsLeft = 0;
     setRunning(false);
     setDone(true);
     setSecsLeft(0);
@@ -200,6 +211,11 @@ function PomodoroTimer() {
 
   const selectOption = (opt) => {
     timerRef.current = { endTime: null, running: false };
+    _pomodoroStore.selected = opt;
+    _pomodoroStore.endTime = null;
+    _pomodoroStore.running = false;
+    _pomodoroStore.done = false;
+    _pomodoroStore.secsLeft = opt.secs;
     setSelected(opt);
     setSecsLeft(opt.secs);
     setRunning(false);
@@ -207,8 +223,11 @@ function PomodoroTimer() {
   };
 
   const start = () => {
-    timerRef.current.endTime = Date.now() + secsLeft * 1000;
+    const endTime = Date.now() + secsLeft * 1000;
+    timerRef.current.endTime = endTime;
     timerRef.current.running = true;
+    _pomodoroStore.endTime = endTime;
+    _pomodoroStore.running = true;
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
@@ -216,16 +235,25 @@ function PomodoroTimer() {
   };
 
   const pause = () => {
-    if (timerRef.current.endTime) {
-      setSecsLeft(Math.max(0, Math.round((timerRef.current.endTime - Date.now()) / 1000)));
-    }
+    const remaining = timerRef.current.endTime
+      ? Math.max(0, Math.round((timerRef.current.endTime - Date.now()) / 1000))
+      : secsLeft;
     timerRef.current.endTime = null;
     timerRef.current.running = false;
+    _pomodoroStore.endTime = null;
+    _pomodoroStore.running = false;
+    _pomodoroStore.secsLeft = remaining;
+    setSecsLeft(remaining);
     setRunning(false);
   };
 
   const reset = () => {
     timerRef.current = { endTime: null, running: false };
+    _pomodoroStore.selected = null;
+    _pomodoroStore.endTime = null;
+    _pomodoroStore.running = false;
+    _pomodoroStore.done = false;
+    _pomodoroStore.secsLeft = 0;
     setSelected(null);
     setSecsLeft(0);
     setRunning(false);
@@ -1074,7 +1102,7 @@ function ExerciseCard({ ex, expanded, setExpanded, onEdit, onDelete, deleting })
           <span className="crud-card-sub">{ex.muscle_groups?.join(', ')}</span>
         </div>
         <div className="crud-card-right">
-          <DiffBadge level={ex.difficulty} />
+          <TypeBadge type={ex.movement_type} />
           <span className="expand-icon">{expanded === ex.id ? '▲' : '▼'}</span>
         </div>
       </button>
