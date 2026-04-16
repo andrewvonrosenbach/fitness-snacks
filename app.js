@@ -102,6 +102,8 @@ function DiffBadge({ level }) {
 }
 
 // ── Pomodoro Timer ────────────────────────────────────────────────────────────
+// Module-level store so timer state survives navigation (component unmount/remount)
+const _pomodoroStore = { selected: null, secsLeft: 0, running: false, done: false, endTime: null };
 
 const POMODORO_OPTIONS = [
   { label: '5 min', secs: 300 },
@@ -152,16 +154,25 @@ function playExerciseTone() {
 }
 
 function PomodoroTimer() {
-  const [selected, setSelected] = useState(null);
-  const [secsLeft, setSecsLeft] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [done, setDone] = useState(false);
+  // Restore state from module-level store so timer persists across navigation
+  const _initRunning = _pomodoroStore.running && _pomodoroStore.endTime && _pomodoroStore.endTime > Date.now();
+  const _initSecs = _initRunning
+    ? Math.max(0, Math.round((_pomodoroStore.endTime - Date.now()) / 1000))
+    : _pomodoroStore.secsLeft;
+  const [selected, setSelected] = useState(_pomodoroStore.selected);
+  const [secsLeft, setSecsLeft] = useState(_initSecs);
+  const [running, setRunning] = useState(_initRunning);
+  const [done, setDone] = useState(_pomodoroStore.done);
   // timerRef holds mutable timer state safe to read from closures
-  const timerRef = useRef({ endTime: null, running: false });
+  const timerRef = useRef({ endTime: _pomodoroStore.endTime, running: _initRunning });
 
   const finishPomodoro = useCallback(() => {
     timerRef.current.endTime = null;
     timerRef.current.running = false;
+    _pomodoroStore.endTime = null;
+    _pomodoroStore.running = false;
+    _pomodoroStore.done = true;
+    _pomodoroStore.secsLeft = 0;
     setRunning(false);
     setDone(true);
     setSecsLeft(0);
@@ -200,6 +211,11 @@ function PomodoroTimer() {
 
   const selectOption = (opt) => {
     timerRef.current = { endTime: null, running: false };
+    _pomodoroStore.selected = opt;
+    _pomodoroStore.endTime = null;
+    _pomodoroStore.running = false;
+    _pomodoroStore.done = false;
+    _pomodoroStore.secsLeft = opt.secs;
     setSelected(opt);
     setSecsLeft(opt.secs);
     setRunning(false);
@@ -207,8 +223,11 @@ function PomodoroTimer() {
   };
 
   const start = () => {
-    timerRef.current.endTime = Date.now() + secsLeft * 1000;
+    const endTime = Date.now() + secsLeft * 1000;
+    timerRef.current.endTime = endTime;
     timerRef.current.running = true;
+    _pomodoroStore.endTime = endTime;
+    _pomodoroStore.running = true;
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
@@ -216,16 +235,25 @@ function PomodoroTimer() {
   };
 
   const pause = () => {
-    if (timerRef.current.endTime) {
-      setSecsLeft(Math.max(0, Math.round((timerRef.current.endTime - Date.now()) / 1000)));
-    }
+    const remaining = timerRef.current.endTime
+      ? Math.max(0, Math.round((timerRef.current.endTime - Date.now()) / 1000))
+      : secsLeft;
     timerRef.current.endTime = null;
     timerRef.current.running = false;
+    _pomodoroStore.endTime = null;
+    _pomodoroStore.running = false;
+    _pomodoroStore.secsLeft = remaining;
+    setSecsLeft(remaining);
     setRunning(false);
   };
 
   const reset = () => {
     timerRef.current = { endTime: null, running: false };
+    _pomodoroStore.selected = null;
+    _pomodoroStore.endTime = null;
+    _pomodoroStore.running = false;
+    _pomodoroStore.done = false;
+    _pomodoroStore.secsLeft = 0;
     setSelected(null);
     setSecsLeft(0);
     setRunning(false);
@@ -1074,7 +1102,7 @@ function ExerciseCard({ ex, expanded, setExpanded, onEdit, onDelete, deleting })
           <span className="crud-card-sub">{ex.muscle_groups?.join(', ')}</span>
         </div>
         <div className="crud-card-right">
-          <DiffBadge level={ex.difficulty} />
+          <TypeBadge type={ex.movement_type} />
           <span className="expand-icon">{expanded === ex.id ? '▲' : '▼'}</span>
         </div>
       </button>
@@ -1337,6 +1365,10 @@ function Pods({ onStart }) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [sort, setSort] = useState('recent');
+  const [expandedEx, setExpandedEx] = useState(null);
+  const [exOverrides, setExOverrides] = useState({});
+  const [pendingDefaults, setPendingDefaults] = useState({});
+  const [savingDefault, setSavingDefault] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -1399,6 +1431,61 @@ function Pods({ onStart }) {
     setView('list');
   };
 
+  const handleExOverride = (ex, rawVal) => {
+    const field = exOverrides[ex.id]?.field ?? (ex.reps ? 'reps' : 'duration_estimate_seconds');
+    const numVal = parseInt(rawVal, 10);
+    const valid = !isNaN(numVal) && numVal >= 1;
+    setExOverrides(prev => ({
+      ...prev,
+      [ex.id]: { field, value: valid ? numVal : (prev[ex.id]?.value ?? (ex[field] || 1)), raw: rawVal },
+    }));
+    if (valid) {
+      const origField = ex.reps ? 'reps' : 'duration_estimate_seconds';
+      const changed = field !== origField || numVal !== ex[origField];
+      if (changed) {
+        setPendingDefaults(prev => ({ ...prev, [ex.id]: { field, value: numVal } }));
+      } else {
+        setPendingDefaults(prev => { const n = { ...prev }; delete n[ex.id]; return n; });
+      }
+    }
+  };
+
+  const handleExTrackMode = (ex, newField) => {
+    const defaultVal = newField === 'reps' ? (ex.reps || 10) : (ex.duration_estimate_seconds || 45);
+    const origField = ex.reps ? 'reps' : 'duration_estimate_seconds';
+    const changed = newField !== origField || defaultVal !== ex[origField];
+    setExOverrides(prev => ({
+      ...prev,
+      [ex.id]: { field: newField, value: defaultVal, raw: String(defaultVal) },
+    }));
+    if (changed) {
+      setPendingDefaults(prev => ({ ...prev, [ex.id]: { field: newField, value: defaultVal } }));
+    } else {
+      setPendingDefaults(prev => { const n = { ...prev }; delete n[ex.id]; return n; });
+    }
+  };
+
+  const confirmSaveDefault = async (exId) => {
+    const pending = pendingDefaults[exId];
+    if (!pending) return;
+    setSavingDefault(exId);
+    try {
+      const payload = { [pending.field]: pending.value };
+      if (pending.field === 'duration_estimate_seconds') payload.reps = null;
+      const res = await apiFetch(`/api/exercises?id=${exId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      const updated = await res.json();
+      setExercises(prev => prev.map(e => e.id === exId ? { ...e, ...updated } : e));
+      setPendingDefaults(prev => { const n = { ...prev }; delete n[exId]; return n; });
+      setExOverrides(prev => { const n = { ...prev }; delete n[exId]; return n; });
+    } finally {
+      setSavingDefault(null);
+    }
+  };
+
+  const dismissPending = (exId) => {
+    setPendingDefaults(prev => { const n = { ...prev }; delete n[exId]; return n; });
+  };
+
   if (view === 'form') {
     return (
       <div className="page">
@@ -1429,7 +1516,11 @@ function Pods({ onStart }) {
 
   const renderPodCard = (pod) => (
     <div key={pod.id} className="crud-card">
-      <button className="crud-card-header" onClick={() => setExpanded(expanded === pod.id ? null : pod.id)}>
+      <button className="crud-card-header" onClick={() => {
+        const closing = expanded === pod.id;
+        setExpanded(closing ? null : pod.id);
+        if (closing) setExpandedEx(null);
+      }}>
         <div className="crud-card-info">
           <span className="crud-card-name">{pod.name}</span>
           <span className="crud-card-sub">{pod.exercises.length} exercises · ~{mins(pod.total_duration_estimate_seconds)} min</span>
@@ -1445,18 +1536,72 @@ function Pods({ onStart }) {
           <ul className="exercise-list">
             {pod.exercises.map(id => {
               const ex = exMap[id];
-              return ex ? (
-                <li key={id} className="exercise-item">
-                  <div>
-                    <p className="exercise-name">{ex.name}</p>
-                    <p className="exercise-muscles">{ex.muscle_groups?.join(', ')}</p>
-                  </div>
-                  <div className="exercise-item-right">
-                    <span className="exercise-duration-tag">{ex.reps ? `${ex.reps} reps` : `${ex.duration_estimate_seconds}s`}</span>
-                    <DiffBadge level={ex.difficulty} />
-                  </div>
+              if (!ex) return null;
+              const ov = exOverrides[ex.id];
+              const currentField = ov?.field ?? (ex.reps ? 'reps' : 'duration_estimate_seconds');
+              const rawInput = ov?.raw ?? String(ex.reps ?? ex.duration_estimate_seconds);
+              const fieldLabel = currentField === 'reps' ? 'Reps' : 'Duration (s)';
+              const pending = pendingDefaults[ex.id];
+              return (
+                <li key={id} className="exercise-item-expandable">
+                  <button
+                    className="exercise-item-header"
+                    onClick={() => setExpandedEx(expandedEx === ex.id ? null : ex.id)}
+                  >
+                    <div>
+                      <p className="exercise-name">{ex.name}</p>
+                      <p className="exercise-muscles">{ex.muscle_groups?.join(', ')}</p>
+                    </div>
+                    <div className="exercise-item-right">
+                      <DiffBadge level={ex.difficulty} />
+                      <span className="expand-icon">{expandedEx === ex.id ? '▲' : '▼'}</span>
+                    </div>
+                  </button>
+                  {expandedEx === ex.id && (
+                    <div className="exercise-item-details">
+                      <div className="ex-override-track-toggle">
+                        <button
+                          className={`ex-track-btn${currentField === 'duration_estimate_seconds' ? ' active' : ''}`}
+                          onClick={e => { e.stopPropagation(); handleExTrackMode(ex, 'duration_estimate_seconds'); }}
+                        >
+                          Duration
+                        </button>
+                        <button
+                          className={`ex-track-btn${currentField === 'reps' ? ' active' : ''}`}
+                          onClick={e => { e.stopPropagation(); handleExTrackMode(ex, 'reps'); }}
+                        >
+                          Reps
+                        </button>
+                      </div>
+                      <div className="crud-detail-row">
+                        <span className="crud-detail-label">{fieldLabel}</span>
+                        <input
+                          type="number"
+                          className="ex-override-input"
+                          value={rawInput}
+                          min={1}
+                          max={currentField === 'reps' ? 200 : 600}
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => handleExOverride(ex, e.target.value)}
+                        />
+                      </div>
+                      {pending && (
+                        <div className="ex-save-default-row">
+                          <span className="ex-save-default-label">Save as new default?</span>
+                          <button
+                            className="ex-save-yes"
+                            onClick={() => confirmSaveDefault(ex.id)}
+                            disabled={savingDefault === ex.id}
+                          >
+                            {savingDefault === ex.id ? '…' : 'Yes'}
+                          </button>
+                          <button className="ex-save-no" onClick={() => dismissPending(ex.id)}>No</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </li>
-              ) : null;
+              );
             })}
           </ul>
           <div className="crud-card-actions">
