@@ -469,7 +469,7 @@ function Home({ onStart, onBrowse }) {
             <div className="pod-meta">
               <span>{pod.exercises.length} exercises</span>
               <span>~{mins} min</span>
-              {pod.is_favourite && <span className="fav">★ Favourite</span>}
+              {pod.is_favorite && <span className="fav">★ Favourite</span>}
             </div>
           </div>
 
@@ -847,7 +847,7 @@ function ExerciseForm({ initial, onSave, onCancel, saving }) {
       delete base._trackMode;
     } else {
       base.duration_estimate_seconds = Number(form.duration_estimate_seconds);
-      delete base.reps;
+      base.reps = null;
       delete base._trackMode;
     }
     onSave(base);
@@ -1339,8 +1339,8 @@ function sortPods(pods, sort) {
   if (sort === 'recent') return [...pods].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
   if (sort === 'favourites') {
     return [...pods].sort((a, b) => {
-      if (a.is_favourite && !b.is_favourite) return -1;
-      if (!a.is_favourite && b.is_favourite) return 1;
+      if (a.is_favorite && !b.is_favorite) return -1;
+      if (!a.is_favorite && b.is_favorite) return 1;
       return a.name.localeCompare(b.name);
     });
   }
@@ -1413,7 +1413,7 @@ function Pods({ onStart }) {
   };
 
   const handleFavourite = async (pod) => {
-    const res = await apiFetch(`/api/pods?id=${pod.id}&action=favourite`, { method: 'PATCH' });
+    const res = await apiFetch(`/api/pods?id=${pod.id}&action=favorite`, { method: 'PATCH' });
     const updated = await res.json();
     setPods(ps => ps.map(p => p.id === updated.id ? updated : p));
   };
@@ -1527,7 +1527,7 @@ function Pods({ onStart }) {
         </div>
         <div className="crud-card-right">
           <TypeBadge type={pod.pod_type} />
-          {pod.is_favourite && <span className="fav-star">★</span>}
+          {pod.is_favorite && <span className="fav-star">★</span>}
           <span className="expand-icon">{expanded === pod.id ? '▲' : '▼'}</span>
         </div>
       </button>
@@ -1607,7 +1607,7 @@ function Pods({ onStart }) {
           <div className="crud-card-actions">
             <button className="btn-start-sm" onClick={() => handleStart(pod)}>▶ Start</button>
             <button className="btn-favourite" onClick={() => handleFavourite(pod)}>
-              {pod.is_favourite ? '★ Unfavourite' : '☆ Favourite'}
+              {pod.is_favorite ? '★ Unfavourite' : '☆ Favourite'}
             </button>
             <button className="btn-edit" onClick={() => { setEditing(pod); setView('form'); }}>Edit</button>
             <button className="btn-delete" onClick={() => handleDelete(pod)} disabled={deleting === pod.id}>
