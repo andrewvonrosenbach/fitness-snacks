@@ -87,6 +87,27 @@ describe('GET /api/pods', () => {
     expect(Array.isArray(res.body.exerciseDetails)).toBe(true);
   });
 
+  it('returns a random pod matching the requested type', async () => {
+    const mobilityPod = { ...POD1, id: 'pod2', name: 'Mobility Flow', pod_type: 'mobility' };
+    setup([POD1, mobilityPod]);
+    // Run several times to confirm only mobility pod is ever returned
+    for (let i = 0; i < 10; i++) {
+      const req = mockReq('GET', { query: { random: '1', type: 'mobility' } });
+      const res = mockRes();
+      await handler(req, res);
+      expect(res.body.pod_type).toBe('mobility');
+    }
+  });
+
+  it('falls back to all pods when no pod matches the requested type', async () => {
+    setup([POD1]); // only a strength pod
+    const req = mockReq('GET', { query: { random: '1', type: 'core' } });
+    const res = mockRes();
+    await handler(req, res);
+    // Falls back gracefully — returns something rather than 404
+    expect(res.body.id).toBe('pod1');
+  });
+
   it('returns 404 random when no pods exist', async () => {
     setup([]);
     const req = mockReq('GET', { query: { random: '1' } });
