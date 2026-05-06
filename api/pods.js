@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   try {
     await seedOnce(client);
 
-    const { id, random, action } = req.query;
+    const { id, random, action, type } = req.query;
 
     // GET /api/pods?random=1 — weighted random pod
     if (req.method === 'GET' && random) {
@@ -41,9 +41,11 @@ export default async function handler(req, res) {
         }
       }
 
-      const pods = (await Promise.all(ids.map(i => getPod(client, i)))).filter(Boolean);
+      const allPods = (await Promise.all(ids.map(i => getPod(client, i)))).filter(Boolean);
+      const pods = type ? allPods.filter(p => p.pod_type === type) : allPods;
+      const candidates = pods.length > 0 ? pods : allPods;
 
-      const weighted = pods.map(pod => {
+      const weighted = candidates.map(pod => {
         let weight = 1.0;
         if (favIds.has(pod.id)) weight *= 1.5;
         const daysSince = completedMap[pod.id] ?? Infinity;
