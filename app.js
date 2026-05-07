@@ -469,7 +469,7 @@ function Home({ onStart, onBrowse }) {
             <div className="pod-meta">
               <span>{pod.exercises.length} exercises</span>
               <span>~{mins} min</span>
-              {pod.is_favorite && <span className="fav">★ Favourite</span>}
+              {pod.is_favourite && <span className="fav">★ Favourite</span>}
             </div>
           </div>
 
@@ -1413,7 +1413,7 @@ function Pods({ onStart }) {
   };
 
   const handleFavourite = async (pod) => {
-    const res = await apiFetch(`/api/pods?id=${pod.id}&action=favorite`, { method: 'PATCH' });
+    const res = await apiFetch(`/api/pods?id=${pod.id}&action=favourite`, { method: 'PATCH' });
     const updated = await res.json();
     setPods(ps => ps.map(p => p.id === updated.id ? updated : p));
   };
@@ -1422,7 +1422,17 @@ function Pods({ onStart }) {
     const res = await apiFetch(`/api/pods?id=${pod.id}`);
     if (!res || !res.ok) return;
     const full = await res.json();
-    onStart(full);
+    const withOverrides = {
+      ...full,
+      exerciseDetails: (full.exerciseDetails || []).map(ex => {
+        const ov = exOverrides[ex.id];
+        if (!ov) return ex;
+        const updated = { ...ex, [ov.field]: ov.value };
+        if (ov.field === 'duration_estimate_seconds') delete updated.reps;
+        return updated;
+      }),
+    };
+    onStart(withOverrides);
   };
 
   const cancel = () => {
@@ -1527,7 +1537,7 @@ function Pods({ onStart }) {
         </div>
         <div className="crud-card-right">
           <TypeBadge type={pod.pod_type} />
-          {pod.is_favorite && <span className="fav-star">★</span>}
+          {pod.is_favourite && <span className="fav-star">★</span>}
           <span className="expand-icon">{expanded === pod.id ? '▲' : '▼'}</span>
         </div>
       </button>
@@ -1607,7 +1617,7 @@ function Pods({ onStart }) {
           <div className="crud-card-actions">
             <button className="btn-start-sm" onClick={() => handleStart(pod)}>▶ Start</button>
             <button className="btn-favourite" onClick={() => handleFavourite(pod)}>
-              {pod.is_favorite ? '★ Unfavourite' : '☆ Favourite'}
+              {pod.is_favourite ? '★ Unfavourite' : '☆ Favourite'}
             </button>
             <button className="btn-edit" onClick={() => { setEditing(pod); setView('form'); }}>Edit</button>
             <button className="btn-delete" onClick={() => handleDelete(pod)} disabled={deleting === pod.id}>

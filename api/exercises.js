@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const ex = { id: randomId(), ...req.body };
+      const ex = { id: randomId(), created_at: Date.now(), ...req.body };
       await client.set(`exercises:${ex.id}`, JSON.stringify(ex));
       await client.sadd('exercises:all', ex.id);
       return res.status(201).json(ex);

@@ -22,14 +22,14 @@ export default async function handler(req, res) {
   try {
     await seedOnce(client);
 
-    const { id, random, action } = req.query;
+    const { id, random, action, type } = req.query;
 
     // GET /api/pods?random=1 — weighted random pod
     if (req.method === 'GET' && random) {
       const ids = await client.smembers('pods:all');
       if (ids.length === 0) return res.status(404).json({ error: 'No pods available' });
 
-      const favIds = new Set(await client.smembers('pods:favorites'));
+      const favIds = new Set(await client.smembers('pods:favourites'));
       const recentRaw = await client.zrevrange('history:all', 0, 9);
       const recent = recentRaw.map(r => JSON.parse(r));
       const last2Types = recent.slice(0, 2).map(s => s.pod_type);
@@ -41,7 +41,13 @@ export default async function handler(req, res) {
         }
       }
 
-      const pods = (await Promise.all(ids.map(i => getPod(client, i)))).filter(Boolean);
+      let pods = (await Promise.all(ids.map(i => getPod(client, i)))).filter(Boolean);
+
+      if (type && type !== 'any') {
+        const filtered = pods.filter(p => p.pod_type === type);
+        if (filtered.length === 0) return res.status(404).json({ error: `No ${type} pods available` });
+        pods = filtered;
+      }
 
       const weighted = pods.map(pod => {
         let weight = 1.0;
@@ -84,12 +90,14 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const { exercises: exerciseIds = [], ...rest } = req.body;
       const exerciseObjs = (await Promise.all(exerciseIds.map(i => getExercise(client, i)))).filter(Boolean);
+      const type_manual = !!rest.type_manual;
       const pod = {
         id: randomId(),
         exercises: exerciseIds,
-        pod_type: calcPodType(exerciseObjs),
+        pod_type: type_manual ? rest.pod_type : calcPodType(exerciseObjs),
+        type_manual,
         total_duration_estimate_seconds: exerciseObjs.reduce((s, e) => s + (e.duration_estimate_seconds || 60), 0),
-        is_favorite: false,
+        is_favourite: false,
         created_at: Date.now(),
         ...rest,
       };
@@ -104,33 +112,35 @@ export default async function handler(req, res) {
       if (!existing) return res.status(404).json({ error: 'Not found' });
       const { exercises: exerciseIds = existing.exercises, ...rest } = req.body;
       const exerciseObjs = (await Promise.all(exerciseIds.map(i => getExercise(client, i)))).filter(Boolean);
+      const type_manual = rest.type_manual !== undefined ? !!rest.type_manual : !!existing.type_manual;
       const updated = {
         ...existing, ...rest,
         id,
         exercises: exerciseIds,
-        pod_type: calcPodType(exerciseObjs),
+        pod_type: type_manual ? (rest.pod_type || existing.pod_type) : calcPodType(exerciseObjs),
+        type_manual,
         total_duration_estimate_seconds: exerciseObjs.reduce((s, e) => s + (e.duration_estimate_seconds || 60), 0),
       };
       await client.set(`pods:${id}`, JSON.stringify(updated));
-      if (updated.is_favorite) {
-        await client.sadd('pods:favorites', id);
+      if (updated.is_favourite) {
+        await client.sadd('pods:favourites', id);
       } else {
-        await client.srem('pods:favorites', id);
+        await client.srem('pods:favourites', id);
       }
       return res.json(updated);
     }
 
-    // PATCH /api/pods?id=xxx&action=favorite
-    if (req.method === 'PATCH' && action === 'favorite') {
+    // PATCH /api/pods?id=xxx&action=favourite
+    if (req.method === 'PATCH' && action === 'favourite') {
       if (!id) return res.status(400).json({ error: 'id required' });
       const pod = await getPod(client, id);
       if (!pod) return res.status(404).json({ error: 'Not found' });
-      pod.is_favorite = !pod.is_favorite;
+      pod.is_favourite = !pod.is_favourite;
       await client.set(`pods:${id}`, JSON.stringify(pod));
-      if (pod.is_favorite) {
-        await client.sadd('pods:favorites', id);
+      if (pod.is_favourite) {
+        await client.sadd('pods:favourites', id);
       } else {
-        await client.srem('pods:favorites', id);
+        await client.srem('pods:favourites', id);
       }
       return res.json(pod);
     }
@@ -139,7 +149,7 @@ export default async function handler(req, res) {
       if (!id) return res.status(400).json({ error: 'id required' });
       await client.del(`pods:${id}`);
       await client.srem('pods:all', id);
-      await client.srem('pods:favorites', id);
+      await client.srem('pods:favourites', id);
       return res.status(204).end();
     }
 

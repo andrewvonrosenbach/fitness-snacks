@@ -10,3 +10,6 @@ Thumbs.db
 .vercel
 .claude
 PLAN.md.txt
+
+.vercel
+.env*.local

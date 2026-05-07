@@ -30,6 +30,20 @@ const EXERCISES = [
   { name: 'Medicine Ball Slam', description: 'Power and explosive full body movement.', duration_estimate_seconds: 45, difficulty: 'intermediate', muscle_groups: ['full body', 'core', 'power'], equipment: ['medicine ball'], movement_type: 'strength', instructions: ['Hold MB overhead', 'Slam it to the floor as hard as possible', 'Catch on the bounce or pick up', 'Repeat'] },
   { name: 'MB Rotational Throw', description: 'Rotational power drill targeting the obliques and core.', duration_estimate_seconds: 45, difficulty: 'intermediate', muscle_groups: ['core', 'obliques'], equipment: ['medicine ball'], movement_type: 'strength', instructions: ['Stand sideways to a wall', 'Hold MB at hip', 'Rotate explosively and throw MB into wall', 'Catch and repeat'] },
   { name: 'MB Squat and Press', description: 'Full body compound movement with medicine ball.', duration_estimate_seconds: 45, difficulty: 'intermediate', muscle_groups: ['legs', 'shoulders', 'core'], equipment: ['medicine ball'], movement_type: 'strength', instructions: ['Hold MB at chest', 'Squat to parallel', 'Stand and press MB overhead', 'Lower MB as you descend'] },
+  // Core exercises
+  { name: 'Dead Bug', description: 'Anti-extension core stability drill that trains deep abdominals.', duration_estimate_seconds: 45, difficulty: 'beginner', muscle_groups: ['core', 'abs'], equipment: ['bodyweight'], movement_type: 'core', instructions: ['Lie on back, arms straight up, knees at 90°', 'Lower right arm and left leg toward floor simultaneously', 'Keep lower back pressed into floor', 'Return and alternate sides'] },
+  { name: 'Hollow Body Hold', description: 'Gymnastics-style isometric that builds total core tension.', duration_estimate_seconds: 30, difficulty: 'intermediate', muscle_groups: ['core', 'abs', 'hip flexors'], equipment: ['bodyweight'], movement_type: 'core', instructions: ['Lie on back', 'Press lower back into floor', 'Lift shoulders and legs to create a boat shape', 'Arms reach overhead', 'Hold position breathing steadily'] },
+  { name: 'Copenhagen Side Plank', description: 'Adductor and oblique strengthener from a side plank position.', duration_estimate_seconds: 30, difficulty: 'advanced', muscle_groups: ['core', 'obliques', 'adductors'], equipment: ['bodyweight'], movement_type: 'core', instructions: ['Place top foot on a bench or chair', 'Press into side plank', 'Lift bottom leg to meet top foot', 'Hold or pulse', 'Switch sides'] },
+  { name: 'Pallof Press Hold', description: 'Anti-rotation isometric using a band or cable to challenge core stability.', duration_estimate_seconds: 30, difficulty: 'intermediate', muscle_groups: ['core', 'obliques'], equipment: ['resistance band'], movement_type: 'core', instructions: ['Attach band to anchor at chest height', 'Stand side-on and hold band at chest', 'Press arms out straight and hold', 'Resist the pull — do not rotate', 'Switch sides'] },
+  { name: 'V-Ups', description: 'Dynamic core exercise targeting the entire abdominal wall.', duration_estimate_seconds: 40, difficulty: 'intermediate', muscle_groups: ['abs', 'core', 'hip flexors'], equipment: ['bodyweight'], movement_type: 'core', instructions: ['Lie flat, arms extended overhead', 'Simultaneously lift arms and legs toward each other', 'Reach fingers toward toes at the top', 'Lower with control'] },
+  { name: 'Bird Dog', description: 'Contralateral core stability drill that also targets the glutes and back.', duration_estimate_seconds: 45, difficulty: 'beginner', muscle_groups: ['core', 'glutes', 'back'], equipment: ['bodyweight'], movement_type: 'core', instructions: ['Start on all fours, wrists under shoulders, knees under hips', 'Extend right arm and left leg simultaneously', 'Hold 2 seconds at the top', 'Return without touching floor', 'Alternate sides'] },
+  // Bedtime / recovery exercises
+  { name: 'Supine Spinal Twist', description: 'Gentle lying twist that releases tension in the lower back and hips.', duration_estimate_seconds: 60, difficulty: 'beginner', muscle_groups: ['back', 'hips', 'mobility'], equipment: ['bodyweight'], movement_type: 'recovery', instructions: ['Lie on back', 'Hug right knee to chest', 'Let it fall across body to the left', 'Extend right arm to the right', 'Look right if comfortable', 'Hold then switch sides'] },
+  { name: "Child's Pose", description: 'Restorative resting position that releases the hips, thighs, and lower back.', duration_estimate_seconds: 60, difficulty: 'beginner', muscle_groups: ['hips', 'back', 'shoulders'], equipment: ['bodyweight'], movement_type: 'recovery', instructions: ['Kneel and sit back on heels', 'Reach arms forward on the floor', 'Rest forehead down', 'Breathe deeply into the back body', 'Hold'] },
+  { name: 'Legs Up The Wall', description: 'Restorative inversion that calms the nervous system and reduces leg fatigue.', duration_estimate_seconds: 120, difficulty: 'beginner', muscle_groups: ['legs', 'back', 'mobility'], equipment: ['bodyweight'], movement_type: 'recovery', instructions: ['Sit sideways against a wall', 'Swing legs up the wall as you lie back', 'Keep legs straight and relaxed', 'Arms out to sides, palms up', 'Close eyes and breathe slowly'] },
+  { name: 'Diaphragmatic Breathing', description: 'Deep belly breathing that activates the parasympathetic nervous system.', duration_estimate_seconds: 120, difficulty: 'beginner', muscle_groups: ['core', 'mobility'], equipment: ['bodyweight'], movement_type: 'recovery', instructions: ['Lie on back with knees bent', 'Place one hand on chest, one on belly', 'Inhale slowly through nose, belly rises', 'Exhale through pursed lips, belly falls', 'Repeat 8–10 breaths'] },
+  { name: 'Cat-Cow Stretch', description: 'Gentle spinal mobility flow to release back tension before sleep.', duration_estimate_seconds: 60, difficulty: 'beginner', muscle_groups: ['back', 'core', 'mobility'], equipment: ['bodyweight'], movement_type: 'recovery', instructions: ['Start on all fours', 'Inhale — drop belly, lift head and tailbone (Cow)', 'Exhale — round spine, tuck chin and pelvis (Cat)', 'Flow slowly between positions'] },
+  { name: 'Neck and Shoulder Rolls', description: 'Gentle mobility work to release tension accumulated from sitting or screens.', duration_estimate_seconds: 45, difficulty: 'beginner', muscle_groups: ['neck', 'shoulders', 'mobility'], equipment: ['bodyweight'], movement_type: 'recovery', instructions: ['Sit or stand tall', 'Slowly roll head in a half-circle side to side', 'Roll shoulders back 5 times, then forward 5 times', 'Move slowly — no forcing'] },
 ];
 
 const PODS = [
@@ -41,13 +55,21 @@ const PODS = [
   { name: 'Shoulder Health', exerciseNames: ['Dead Hang + Shoulder Shrug', 'Scapular Pull-ups', 'Push-up to Downward Dog', 'Plank Shoulder Taps'] },
   { name: 'Advanced Power', exerciseNames: ['Dumbbell Snatch', 'Dumbbell Clean and Press', 'Jump Squats', 'Medicine Ball Slam'] },
   { name: 'Beginner Foundations', exerciseNames: ['Goblet Squat', 'Inchworm Walk-out', "World's Greatest Stretch", 'Dead Hang + Shoulder Shrug'] },
+  { name: 'Core Foundations', exerciseNames: ['Dead Bug', 'Bird Dog', 'Hollow Body Hold', 'Plank Shoulder Taps'] },
+  { name: 'Core Burn', exerciseNames: ['Hollow Body Hold', 'V-Ups', 'Copenhagen Side Plank', 'Mountain Climbers'] },
+  { name: 'Bedtime Wind-Down', exerciseNames: ["Child's Pose", 'Supine Spinal Twist', 'Diaphragmatic Breathing', 'Legs Up The Wall'] },
+  { name: 'Evening Release', exerciseNames: ['Cat-Cow Stretch', 'Neck and Shoulder Rolls', "Child's Pose", 'Supine Spinal Twist'] },
 ];
 
 function calcPodType(exercises) {
   const total = exercises.length;
   if (total === 0) return 'hybrid';
+  const rc = exercises.filter(e => e.movement_type === 'recovery').length;
+  const cc = exercises.filter(e => e.movement_type === 'core').length;
   const sc = exercises.filter(e => e.movement_type === 'strength' || e.movement_type === 'both').length;
   const mc = exercises.filter(e => e.movement_type === 'mobility' || e.movement_type === 'both').length;
+  if (rc / total > 0.5) return 'bedtime';
+  if (cc / total > 0.5) return 'core';
   if (sc / total > 0.7) return 'strength';
   if (mc / total > 0.7) return 'mobility';
   return 'hybrid';
@@ -74,7 +96,7 @@ export async function seedOnce(client) {
       exercises: exercises.map(e => e.id),
       pod_type: calcPodType(exercises),
       total_duration_estimate_seconds: exercises.reduce((s, e) => s + e.duration_estimate_seconds, 0),
-      is_favorite: false,
+      is_favourite: false,
       created_at: Date.now(),
     };
     await client.set(`pods:${record.id}`, JSON.stringify(record));
